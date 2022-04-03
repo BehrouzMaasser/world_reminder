@@ -6,9 +6,7 @@ from plyer import notification
 
 from threading import Timer
 
-from wReminder_tkinter_mvc.core.reminder_model import (
-    Reminder, validate_inputs
-)
+from core.reminder_model import Reminder, validate_inputs
 
 
 # Controller

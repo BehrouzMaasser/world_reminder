@@ -1,7 +1,7 @@
 import tkinter as tk
 
-from wReminder_tkinter_mvc.core.view import ControlFrame
-from wReminder_tkinter_mvc.core.controller import Controller
+from core.view import ControlFrame
+from core.controller import Controller
 
 
 class App(tk.Tk):
