@@ -42,7 +42,9 @@ class ControlFrame(ttk.LabelFrame):
         self.grid(column=0, row=0, padx=5, pady=5, sticky='w')
 
     # Switch to Frames Add Reminder or Display Reminders
-    def change_frame(self, frame_number):
+    def change_frame(self, frame_number=None):
+        if frame_number == None:
+            frame_number = self.current_frame_on
         if frame_number == '1':
             self.frames['1'] = DisplayReminders(
                 self.container, self.controller
@@ -62,6 +64,8 @@ class ControlFrame(ttk.LabelFrame):
 class AddReminder(ttk.Frame):
     def __init__(self, container, controller):
         super().__init__(container)
+
+        self.controller = controller
 
         # Options
         options = {'padx': 5, 'pady': 5}
@@ -176,17 +180,57 @@ class AddReminder(ttk.Frame):
         self.add_reminder_button = ttk.Button(
             self,
             text="Add Reminder",
-            command=lambda: controller.add_reminder(
-                self.timezone_listbox,
-                self.cal,
-                self.hours_entry,
-                self.minutes_entry,
-            )
+            command=lambda: self.add_reminder()
         )
         self.add_reminder_button.grid(column=3, row=8, **options)
 
         # Set Add Reminder Frame
         self.grid(column=0, row=1, padx=5, pady=5, sticky="nsew")
+
+    def add_reminder(self):
+        timezone = self.get_validated_timezone()
+        naive_datetime = self.get_datetime_from_inputs()
+        if timezone == None:
+            showerror(title="Invalid Time Zone", message="Select A Time Zone")
+            return
+        if naive_datetime == None:
+            showerror(
+                title="Invalid Date & Time", message="Select Date & Time"
+            )
+            return
+        if self.controller.add_reminder_and_run_timer(
+                timezone,
+                naive_datetime,
+                self.reminder_notification_title.get(),
+                self.reminder_notification_message.get()
+        ):
+            showinfo(title="Success", message="Reminder's Set Successfully!")
+        else:
+            showerror(
+                title="Invalid Date & Time",
+                message="Date & Time Is In The Past"
+            )
+
+    def get_validated_timezone(self):
+        try:
+            return self.timezone_listbox.get(
+                self.timezone_listbox.curselection()[0]
+            )
+        except IndexError:
+            return None
+
+    def get_datetime_from_inputs(self):
+        date_str_list = self.cal.get_date().split('/')
+        try:
+            return dt.datetime(
+                2000 + int(date_str_list[2]),
+                int(date_str_list[0]),
+                int(date_str_list[1]),
+                self.hours_entry.curselection()[0],
+                self.minutes_entry.curselection()[0]
+            )
+        except IndexError:
+            return None
 
 
 # Display Reminders Frame
@@ -203,8 +247,8 @@ class DisplayReminders(ttk.Frame):
                 # Display Reminder Info
                 reminder_label = ttk.Label(
                     self,
-                    text=f"{index + 1}. {reminder.datetime_in_country} in"
-                         f" {reminder.datetime_in_country.tzinfo}"
+                    text=f"{index + 1}. {str(reminder.country_datetime())} in"
+                         f" {reminder.country_datetime().tzinfo}"
                 )
                 reminder_label.grid(
                     column=0, row=index + 1, columnspan=3,
@@ -216,7 +260,7 @@ class DisplayReminders(ttk.Frame):
                     self,
                     text="Cancel Reminder",
                     command=lambda: controller.cancel_reminder(
-                        controller.reminders[index].reminder_id
+                        controller.reminders[index]
                     )
                 )
                 reminder_cancel_button.grid(

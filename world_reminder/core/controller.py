@@ -1,90 +1,72 @@
-import os
 import datetime as dt
 import pytz
-import platform as plt
-from plyer import notification
 
 from threading import Timer
 
-from core.reminder_model import Reminder, validate_inputs
+from core.notification import notify
+from core.reminder_model import Reminder
 
 
-# Controller
 class Controller:
     def __init__(self):
         self.view = None
         self.reminders = []
         self.reminder_id_counter = 0
 
-    def add_reminder(
-            self, timezone_listbox, calendar, hours_entry, minutes_entry
+    def add_reminder_and_run_timer(
+            self, timezone, naive_datetime, reminder_title, reminder_message
     ):
-        # Get mo
-        result = validate_inputs(
-            timezone_listbox, calendar, hours_entry, minutes_entry
-        )
-        if result['data']:
+        country_datetime = pytz.timezone(timezone).localize(naive_datetime)
+        utc_datetime = country_datetime.astimezone(pytz.utc)
+        if self.datetime_is_valid(utc_datetime):
             self.reminder_id_counter += 1
-            reminder = Reminder(
-                result['data'][0], result['data'][1], self.reminder_id_counter
+            self.reminders.append(Reminder(
+                utc_datetime, timezone, self.reminder_id_counter
+            ))
+            self.run_reminder_timer(
+                self.reminders[-1], reminder_title, reminder_message
             )
-            self.reminders.append(reminder)
-
-            # Sort the reminders based on reminder time zone
-            self.reminders.sort(
-                key=lambda rem: str(rem.datetime_in_country.tzinfo)
-            )
-            self.run_reminder(reminder)
-            self.view.display_message(
-                message_type='success', message="Reminder's Set Successfully!"
-            )
+            self.sort_reminders()
+            return True
         else:
-            self.view.display_message(
-                message_type='error', message=result['error']
-            )
+            return False
 
-    def run_reminder(self, reminder):
+    def run_reminder_timer(self, reminder, reminder_title, reminder_message):
         time_difference = \
             reminder.datetime_in_utc - dt.datetime.now(tz=pytz.utc)
         reminder.timer_obj = Timer(
             time_difference.seconds, self.run_notify, args=[
-                self.view.frames['0'].reminder_notification_title.get(),
-                self.view.frames['0'].reminder_notification_message.get(),
+                reminder_title,
+                reminder_message,
                 reminder.reminder_id
             ])
         reminder.timer_obj.start()
 
     def run_notify(self, title, message, reminder_id):
         notify(title, message)
-        self.cancel_reminder(reminder_id)
+        self.remove_reminder_from_list(reminder_id)
+        self.sort_reminders()
 
-    def cancel_reminder(self, reminder_id):
+    def remove_reminder_from_list(self, reminder_id):
         for index, reminder in enumerate(self.reminders):
             if reminder.reminder_id == reminder_id:
-                reminder.timer_obj.cancel()
                 self.reminders.pop(index)
-
-                # Sort the reminders based on reminder time zone
-                self.reminders.sort(
-                    key=lambda rem: str(rem.datetime_in_country.tzinfo)
-                )
-                self.view.change_frame(self.view.current_frame_on)
+                self.view.change_frame()
                 break
 
+    def cancel_reminder(self, reminder):
+        reminder.timer_obj.cancel()
+        self.remove_reminder_from_list(reminder.reminder_id)
+        self.sort_reminders()
 
-def notify(title, message):
-    if plt.system() == 'Windows':
-        notification.notify(
-            title=title,
-            message=message,
-            app_icon='app_icon.ico',
-            timeout=6
+    def sort_reminders(self):
+        """ Sort the reminders based on reminder time zone """
+        self.reminders.sort(
+            key=lambda reminder: str(reminder.timezone)
         )
-    elif plt.system() == 'Darwin':
-        os.system(f'''
-                        osascript -e 'display notification "{message}" with title "{title}" sound name "Submarine"'
-                ''')
-    elif plt.system() == 'Linux':
-        os.system(f'''
-                        notify-send "{message}" "{title}"'
-                ''')
+
+    def datetime_is_valid(self, utc_datetime):
+        if utc_datetime >= dt.datetime.now(tz=pytz.utc):
+            return True
+        else:
+            return False
