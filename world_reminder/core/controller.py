@@ -18,7 +18,7 @@ class Controller:
     ):
         country_datetime = pytz.timezone(timezone).localize(naive_datetime)
         utc_datetime = country_datetime.astimezone(pytz.utc)
-        if self.datetime_is_valid(utc_datetime):
+        if self.datetime_is_in_future(utc_datetime):
             self.reminder_id_counter += 1
             self.reminders.append(Reminder(
                 utc_datetime, timezone, self.reminder_id_counter
@@ -65,8 +65,5 @@ class Controller:
             key=lambda reminder: str(reminder.timezone)
         )
 
-    def datetime_is_valid(self, utc_datetime):
-        if utc_datetime >= dt.datetime.now(tz=pytz.utc):
-            return True
-        else:
-            return False
+    def datetime_is_in_future(self, utc_datetime):
+        return utc_datetime >= dt.datetime.now(tz=pytz.utc)
